@@ -68,7 +68,7 @@ enum FaceOrientation {
     Bottom,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum FaceEdge {
     Left,
     Up,
@@ -76,8 +76,16 @@ enum FaceEdge {
     Down,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum FaceRow {
+    Top,
+    Middle,
+    Bottom,
+}
+
 #[derive(Debug, PartialEq, Eq)]
 struct LinkedListFace {
+    center_color: FaceColor,
     vertex_colors: LinkedList<FaceColor>,
 }
 
@@ -121,12 +129,14 @@ impl Display for LinkedListFace {
 impl LinkedListFace {
     pub fn new(color: FaceColor) -> Self {
         Self {
+            center_color: color,
             vertex_colors: LinkedList::from([color; 8]),
         }
     }
 
-    fn from(colors: [FaceColor; 8]) -> Self {
+    fn from(center: FaceColor, colors: [FaceColor; 8]) -> Self {
         Self {
+            center_color: center,
             vertex_colors: LinkedList::from(colors),
         }
     }
@@ -138,6 +148,10 @@ impl LinkedListFace {
             FaceEdge::Right => todo!(),
             FaceEdge::Down => todo!(),
         }
+    }
+
+    pub fn get_row(&self, row: FaceRow) -> [FaceColor; 3] {
+        todo!()
     }
 
     pub fn rotate_cw(&mut self) {
@@ -155,89 +169,32 @@ impl LinkedListFace {
     }
 
     pub fn shift_in_cw(&mut self, edge: FaceEdge, vertices: [FaceColor; 3]) {
-        todo!()
+        if edge != FaceEdge::Down {
+            let mut end = match edge {
+                FaceEdge::Left => self.vertex_colors.split_off(0),
+                FaceEdge::Up => self.vertex_colors.split_off(2),
+                FaceEdge::Right => self.vertex_colors.split_off(4),
+                FaceEdge::Down => unreachable!(),
+            };
+
+            for vertex in vertices {
+                self.vertex_colors.push_back(vertex);
+                end.pop_front();
+            }
+
+            self.vertex_colors.append(&mut end);
+        } else {
+            self.vertex_colors.pop_front();
+            let mut vertices = LinkedList::from(vertices);
+            self.vertex_colors.push_front(vertices.pop_front().unwrap());
+            self.vertex_colors.pop_back();
+            self.vertex_colors.pop_back();
+            self.vertex_colors.append(&mut vertices);
+        }
     }
 
     pub fn shift_in_ccw(&mut self, edge: FaceEdge, vertices: [FaceColor; 3]) {
         todo!()
-    }
-}
-
-#[cfg(test)]
-mod linkedlistface_tests {
-    use super::*;
-
-    #[test]
-    fn can_print_face() {
-        let face = LinkedListFace::new(FaceColor::Red);
-        println!("{face}");
-        assert!(false);
-    }
-
-    #[test]
-    fn can_rotate_cw() {
-        let colors = [
-            FaceColor::White,
-            FaceColor::Red,
-            FaceColor::Green,
-            FaceColor::Blue,
-            FaceColor::Blue,
-            FaceColor::Blue,
-            FaceColor::Blue,
-            FaceColor::Blue,
-        ];
-        let mut face = LinkedListFace::from(colors);
-
-        let colors = [
-            FaceColor::Blue,
-            FaceColor::Blue,
-            FaceColor::White,
-            FaceColor::Red,
-            FaceColor::Green,
-            FaceColor::Blue,
-            FaceColor::Blue,
-            FaceColor::Blue,
-        ];
-        let expected_face = LinkedListFace::from(colors);
-
-        face.rotate_cw();
-
-        println!("expect:\n{expected_face}");
-        println!("actual:\n{face}");
-        assert_eq!(face, expected_face);
-    }
-
-    #[test]
-    fn can_rotate_ccw() {
-        let colors = [
-            FaceColor::White,
-            FaceColor::Red,
-            FaceColor::Green,
-            FaceColor::Blue,
-            FaceColor::Blue,
-            FaceColor::Blue,
-            FaceColor::Blue,
-            FaceColor::Blue,
-        ];
-        let mut face = LinkedListFace::from(colors);
-
-        let colors = [
-            FaceColor::Green,
-            FaceColor::Blue,
-            FaceColor::Blue,
-            FaceColor::Blue,
-            FaceColor::Blue,
-            FaceColor::Blue,
-            FaceColor::White,
-            FaceColor::Red,
-        ];
-        let expected_face = LinkedListFace::from(colors);
-
-        face.rotate_ccw();
-
-        println!("expect:\n{expected_face}");
-        println!("actual:\n{face}");
-        assert_eq!(face, expected_face);
     }
 }
 
@@ -248,6 +205,28 @@ struct LinkedListCube {
 }
 
 impl LinkedListCube {
+    pub fn new() -> Self {
+        let top_face = LinkedListFace::new(FaceColor::White);
+        let front_face = LinkedListFace::new(FaceColor::Red);
+        let left_face = LinkedListFace::new(FaceColor::Green);
+        let back_face = LinkedListFace::new(FaceColor::Orange);
+        let right_face = LinkedListFace::new(FaceColor::Blue);
+        let bottom_face = LinkedListFace::new(FaceColor::Yellow);
+
+        Self {
+            faces: [
+                top_face,
+                front_face,
+                left_face,
+                back_face,
+                right_face,
+                bottom_face,
+            ],
+            front: FaceColor::Red,
+            top: FaceColor::White,
+        }
+    }
+
     pub fn apply(&mut self, change: Move) {
         todo!()
     }
@@ -433,4 +412,170 @@ enum AffectedFace {
     LeftColumn,
     Front,
     Back,
+}
+
+#[cfg(test)]
+mod linkedlistface_tests {
+    use super::*;
+
+    #[test]
+    fn can_rotate_cw() {
+        let center = FaceColor::Blue;
+        let colors = [
+            FaceColor::White,
+            FaceColor::Red,
+            FaceColor::Green,
+            FaceColor::Blue,
+            FaceColor::Blue,
+            FaceColor::Blue,
+            FaceColor::Blue,
+            FaceColor::Blue,
+        ];
+        let mut face = LinkedListFace::from(center, colors);
+
+        let colors = [
+            FaceColor::Blue,
+            FaceColor::Blue,
+            FaceColor::White,
+            FaceColor::Red,
+            FaceColor::Green,
+            FaceColor::Blue,
+            FaceColor::Blue,
+            FaceColor::Blue,
+        ];
+        let expected_face = LinkedListFace::from(center, colors);
+
+        face.rotate_cw();
+
+        println!("expect:\n{expected_face}");
+        println!("actual:\n{face}");
+        assert_eq!(face, expected_face);
+    }
+
+    #[test]
+    fn can_rotate_ccw() {
+        let center = FaceColor::Blue;
+        let colors = [
+            FaceColor::White,
+            FaceColor::Red,
+            FaceColor::Green,
+            FaceColor::Blue,
+            FaceColor::Blue,
+            FaceColor::Blue,
+            FaceColor::Blue,
+            FaceColor::Blue,
+        ];
+        let mut face = LinkedListFace::from(center, colors);
+
+        let colors = [
+            FaceColor::Green,
+            FaceColor::Blue,
+            FaceColor::Blue,
+            FaceColor::Blue,
+            FaceColor::Blue,
+            FaceColor::Blue,
+            FaceColor::White,
+            FaceColor::Red,
+        ];
+        let expected_face = LinkedListFace::from(center, colors);
+
+        face.rotate_ccw();
+
+        println!("expect:\n{expected_face}");
+        println!("actual:\n{face}");
+        assert_eq!(face, expected_face);
+    }
+
+    #[test]
+    fn can_shift_in_cw() {
+        let center = FaceColor::Blue;
+        let edge_colors = [FaceColor::White, FaceColor::Red, FaceColor::Green];
+        let edge = FaceEdge::Up;
+        let colors = [
+            FaceColor::Blue,
+            FaceColor::Blue,
+            FaceColor::Blue,
+            FaceColor::Blue,
+            FaceColor::Blue,
+            FaceColor::Blue,
+            FaceColor::Blue,
+            FaceColor::Blue,
+        ];
+        let mut face = LinkedListFace::from(center, colors);
+
+        let colors = [
+            FaceColor::Blue,
+            FaceColor::Blue,
+            FaceColor::White,
+            FaceColor::Red,
+            FaceColor::Green,
+            FaceColor::Blue,
+            FaceColor::Blue,
+            FaceColor::Blue,
+        ];
+        let expected_face = LinkedListFace::from(center, colors);
+
+        face.shift_in_cw(edge, edge_colors);
+
+        println!("expect:\n{expected_face}");
+        println!("actual:\n{face}");
+        assert_eq!(face, expected_face);
+
+        let edge_colors = [FaceColor::Yellow, FaceColor::White, FaceColor::Orange];
+        let edge = FaceEdge::Left;
+        let colors = [
+            FaceColor::Yellow,
+            FaceColor::White,
+            FaceColor::Orange,
+            FaceColor::Red,
+            FaceColor::Green,
+            FaceColor::Blue,
+            FaceColor::Blue,
+            FaceColor::Blue,
+        ];
+        let expected_face = LinkedListFace::from(center, colors);
+        face.shift_in_cw(edge, edge_colors);
+
+        println!("expect:\n{expected_face}");
+        println!("actual:\n{face}");
+        assert_eq!(face, expected_face);
+
+        let edge_colors = [FaceColor::Orange, FaceColor::Yellow, FaceColor::White];
+        let edge = FaceEdge::Right;
+        let colors = [
+            FaceColor::Yellow,
+            FaceColor::White,
+            FaceColor::Orange,
+            FaceColor::Red,
+            FaceColor::Orange,
+            FaceColor::Yellow,
+            FaceColor::White,
+            FaceColor::Blue,
+        ];
+        let expected_face = LinkedListFace::from(center, colors);
+        face.shift_in_cw(edge, edge_colors);
+
+        println!("expect:\n{expected_face}");
+        println!("actual:\n{face}");
+        assert_eq!(face, expected_face);
+
+        let edge_colors = [FaceColor::Red, FaceColor::Orange, FaceColor::Yellow];
+        let edge = FaceEdge::Down;
+        let colors = [
+            FaceColor::Red,
+            FaceColor::White,
+            FaceColor::Orange,
+            FaceColor::Red,
+            FaceColor::Orange,
+            FaceColor::Yellow,
+            FaceColor::Orange,
+            FaceColor::Yellow,
+        ];
+        let expected_face = LinkedListFace::from(center, colors);
+        face.shift_in_cw(edge, edge_colors);
+
+        println!("expect:\n{expected_face}");
+        println!("actual:\n{face}");
+        assert_eq!(face, expected_face);
+    }
 }
